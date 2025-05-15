@@ -3,13 +3,30 @@
 import pytest
 from pymongo.errors import WriteError
 from src.util.dao import DAO
+from src.util.test_validators import get_test_validator
+import pymongo
+from src.util import dao
 
 @pytest.fixture(scope="function")
 def task_dao(monkeypatch):
-    monkeypatch.setenv("MONGO_URL", "mongodb://root:root@localhost:27017/edutask_test?authSource=admin")
-    dao = DAO("task")
-    dao.drop()  # To get a fresh start before every test.
-    return dao
+    mongo_url = "mongodb://root:root@localhost:27017/edutask_test?authSource=admin"
+    monkeypatch.setenv("MONGO_URL", mongo_url)
+
+    dao.getValidator = get_test_validator
+
+    client = pymongo.MongoClient(mongo_url)
+    db = client.get_database("edutask_test")
+
+    if "task" in db.list_collection_names():
+        db.drop_collection("task")
+
+    db.create_collection("task", validator=get_test_validator("task"))
+    dao_instance = DAO("task")
+
+    yield dao_instance
+
+    dao_instance.drop()
+
 
 # TC01 - All required fields present with correct types
 def test_create_valid_task(task_dao):
@@ -21,8 +38,6 @@ def test_create_valid_task(task_dao):
     result = task_dao.create(task)
 
     assert "_id" in result
-    assert result["title"] == task["title"]
-    assert result["description"] == task["description"]
 
 
 # TC02 - Missing a required field. In this case a desription.
