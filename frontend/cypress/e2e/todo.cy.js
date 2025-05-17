@@ -69,6 +69,7 @@ describe('Task Detail functionality', () => {
       cy.get('input[placeholder="Add a new todo item"]').type(newTodo, { force: true });
       cy.get('input[type="submit"][value="Add"]').click({ force: true });
   
+
       cy.get('.todo-list .todo-item').last().should('contain.text', newTodo);
     });
 
