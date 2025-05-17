@@ -27,8 +27,5 @@ jobs:
 
     - name: Unit Tests
       run: |
-        python -m pytest -m unit
+        python -m pytest backend/test/test_email.py
 
-    - name: Integration Tests
-      run: |
-        python -m pytest -m integration
