@@ -1,49 +1,53 @@
-describe('UC3 - Deleting Todo Items', () => {
-  let uid;
-  let taskId;
-  let todoId;
-  const todoText = 'Todo to delete';
+describe('UC3: Remove Todo Item', () => {
+    let uid, email, name;
 
-  // Create test user
-  before(() => {
-    cy.fixture('user.json').then((userData) => {
-      cy.request('POST', 'http://localhost:5000/users/create', userData).then((res) => {
-        uid = res.body._id.$oid;
-      });
-    });
-  });
-
-  // Create a task with one todo before each test
-  beforeEach(() => {
-    cy.then(() => {
-      return cy.request('POST', 'http://localhost:5000/tasks/create', {
-        title: 'Delete Test Task',
-        url: 'video_uc3',
-        userid: uid,
-        todos: [todoText],
-      }).then((taskRes) => {
-        taskId = taskRes.body.$oid;
-
-        return cy.request(`http://localhost:5000/tasks/${taskId}`).then((res) => {
-          todoId = res.body.todos[0]._id.$oid;
+    beforeEach(() => {
+        // Create a new user via backend before each test.
+        cy.fixture('user.json').then((user) => {
+            email = `test-${Date.now()}@example.com`;
+            name = `${user.firstName} ${user.lastName}`;
+            cy.request({
+                method: 'POST',
+                url: 'http://localhost:5000/users/create',
+                form: true,
+                body: { ...user, email: email }
+            }).then((response) => {
+                uid = response.body._id.$oid;
+            });
         });
-      });
     });
-  });
 
-  it('R8UC3T1 - should remove a todo item from the list with one click', () => {
-    cy.visit(`/task/${taskId}`);
+    it('R8UC3T1 - should remove a todo item from the list', () => {
+        const todoText = 'This item will be deleted';
+        const task = {
+            title: 'Task for Deleting Todo',
+            url: 'video789'
+        };
 
-    // Click the delete button once instead of twice.
-    cy.get(`[data-todo-id="${todoId}"] .remover`).click();
+        cy.visit('http://localhost:3000');
+        cy.get('input#email').type(email);
+        cy.get('form').submit();
+        cy.contains('Your tasks,').should('contain.text', name);
 
-    // Verifies that the todo is delteted. Currently does not work as expected and fails.
-    cy.get(`[data-todo-id="${todoId}"]`).should('not.exist');
-  });
+        cy.get('input#title').type(task.title);
+        cy.get('input#url').type(task.url);
+        cy.contains('Create new Task').click();
 
-  after(() => {
-    if (uid) {
-      cy.request('DELETE', `http://localhost:5000/users/${uid}`);
-    }
-  });
+        cy.get(`.container-element img[src*="${task.url}"]`, { timeout: 10000 }).first().should('be.visible').click();
+
+        cy.get('input[placeholder="Add a new todo item"]').type(todoText);
+        cy.get('input[type="submit"][value="Add"]').click();
+
+        // Click remove once. No longer doing it twice.
+        cy.contains('.todo-item', todoText).as('todoToDelete');
+        cy.get('@todoToDelete').find('.remover').click();
+
+        cy.contains('.todo-item', todoText).should('not.exist');
+    });
+
+    afterEach(() => {
+        if (uid) {
+            cy.request('DELETE', `http://localhost:5000/users/${uid}`);
+        }
+    });
 });
