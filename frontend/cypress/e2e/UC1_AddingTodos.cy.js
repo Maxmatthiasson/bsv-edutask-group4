@@ -62,7 +62,7 @@ describe('UC1: Add Todo Item', () => {
             const initialCount = itemsBefore.length;
 
             cy.get('input[placeholder="Add a new todo item"]').clear();
-            cy.get('input[type="submit"][value="Add"]').click({ force: true }); // Use force since it might be disabled
+            cy.get('input[type="submit"][value="Add"]').click({ force: true });
 
             cy.wait(500);
             cy.get('.todo-list .todo-item').should('have.length', initialCount);
