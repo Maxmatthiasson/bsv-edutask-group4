@@ -1,7 +1,15 @@
 describe('UC2: Toggle Todo Item Status', () => {
-    let uid, email, name;
+    let uid, email, name, taskId;
+
+    const taskData = {
+        title: 'My Test Task',
+        url: 'video123'
+    };
+
+    const todoData = 'task todo';
 
     beforeEach(() => {
+        // Create a new user via the backend before each test
         cy.fixture('user.json').then((user) => {
             email = `test-${Date.now()}@example.com`;
             name = `${user.firstName} ${user.lastName}`;
@@ -12,42 +20,37 @@ describe('UC2: Toggle Todo Item Status', () => {
                 body: { ...user, email: email }
             }).then((response) => {
                 uid = response.body._id.$oid;
+
+                // Create a new task via the backend before each test
+                cy.request({
+                    method: 'POST',
+                    url: 'http://localhost:5000/tasks/create',
+                    form: true,
+                    body: {
+                        userid: uid,
+                        title: taskData.title,
+                        url: taskData.url,
+                        todos: [todoData]
+                    }
+                }).then((taskResponse) => {
+                    taskId = taskResponse.body[0]._id.$oid;
+                });
             });
         });
     });
 
     it('R8UC2T1 - should mark a todo as done (struck through)', () => {
-        const todoText = `Finish this test ${Date.now()}`;
-        const task = { title: `Task-${Date.now()}`, url: 'video123' };
 
         cy.visit('http://localhost:3000');
         cy.get('input#email').type(email);
         cy.get('form').submit();
         cy.contains('Your tasks,').should('contain.text', name);
-
-        cy.get('input#title').type(task.title);
-        cy.get('input#url').type(task.url);
-        cy.contains('Create new Task').click();
-        cy.get(`.container-element img[src*="${task.url}"]`).first().click();
-        cy.get('input[placeholder="Add a new todo item"]').type(todoText);
-        cy.get('input[type="submit"][value="Add"]').click();
-
-        cy.contains('.todo-item', todoText).as('todoItem');
-
-        cy.request('GET', `http://localhost:5000/tasks/ofuser/${uid}`).then((res) => {
-            const createdTask = res.body.find(t => t.title === task.title);
-            const todoId = createdTask.todos.find(td => td.description === todoText)._id.$oid;
-
-            cy.request({
-                method: 'PUT',
-                url: `http://localhost:5000/todos/byid/${todoId}`,
-                form: true,
-                body: { data: JSON.stringify({ $set: { done: false } }) }
-            });
-        });
-
+        
+        cy.get(`.container-element img[src*="${taskData.url}"]`, { timeout: 10000 }).first().should('be.visible').click();
+        
+        cy.contains('.todo-item', todoData).as('todoItem');
         cy.get('@todoItem').find('.checker').click();
-
+        
         cy.get('@todoItem').find('.checker').should('have.class', 'checked');
         cy.get('@todoItem').find('.editable')
             .should('have.css', 'text-decoration')
@@ -55,44 +58,29 @@ describe('UC2: Toggle Todo Item Status', () => {
     });
 
     it('R8UC2T2 - should unmark a done todo (remove strikethrough)', () => {
-        const todoText = `This was already done ${Date.now()}`;
-        const task = { title: `Task-${Date.now()}`, url: 'video456' };
 
         cy.visit('http://localhost:3000');
         cy.get('input#email').type(email);
         cy.get('form').submit();
         cy.contains('Your tasks,').should('contain.text', name);
 
-        cy.get('input#title').type(task.title);
-        cy.get('input#url').type(task.url);
-        cy.contains('Create new Task').click();
-        cy.get(`.container-element img[src*="${task.url}"]`).first().click();
-        cy.get('input[placeholder="Add a new todo item"]').type(todoText);
-        cy.get('input[type="submit"][value="Add"]').click();
-
-        cy.contains('.todo-item', todoText).as('doneTodo');
-
-        cy.request('GET', `http://localhost:5000/tasks/ofuser/${uid}`).then((res) => {
-            const createdTask = res.body.find(t => t.title === task.title);
-            const todoId = createdTask.todos.find(td => td.description === todoText)._id.$oid;
-
-            cy.request({
-                method: 'PUT',
-                url: `http://localhost:5000/todos/byid/${todoId}`,
-                form: true,
-                body: { data: JSON.stringify({ $set: { done: true } }) }
-            });
+        cy.get(`.container-element img[src*="${taskData.url}"]`, { timeout: 10000 }).first().should('be.visible').click();
+        
+        // Setting the todo to done via the backend since its reliable and the frontend is still being tested.
+        cy.request({
+            method: 'PUT',
+            url: `http://localhost:5000/todos/byid/${taskId}`,
+            body: { data: JSON.stringify({ $set: { done: true } }) }
         });
-
+        
         cy.reload();
+        cy.contains('.todo-item', todoData).as('doneTodo');
+        cy.get('@doneTodo').find('.checker').should('have.class', 'checked');
 
-        cy.contains('.todo-item', todoText).as('doneTodoAfterReload');
-        cy.get('@doneTodoAfterReload').find('.checker').should('have.class', 'checked');
-
-        cy.get('@doneTodoAfterReload').find('.checker').click();
-
-        cy.get('@doneTodoAfterReload').find('.checker').should('have.class', 'unchecked');
-        cy.get('@doneTodoAfterReload').find('.editable')
+        cy.get('@doneTodo').find('.checker').click();
+        
+        cy.get('@doneTodo').find('.checker').should('have.class', 'unchecked');
+        cy.get('@doneTodo').find('.editable')
             .should('have.css', 'text-decoration')
             .and('not.include', 'line-through');
     });
